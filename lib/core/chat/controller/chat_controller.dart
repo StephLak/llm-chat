@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -13,28 +12,24 @@ import 'package:worklyn_task/constants/app_text_styles.dart';
 import 'package:worklyn_task/core/chat/widget/custom_chip.dart';
 import 'package:worklyn_task/core/chat/widget/date_chip.dart';
 import 'package:worklyn_task/core/chat/widget/task_dot.dart';
+import 'package:worklyn_task/core/model/task_model.dart';
 import 'package:worklyn_task/internalization/app_strings.dart';
 import 'package:worklyn_task/utils/view_utils.dart';
-
-class Task {
-  String text;
-  DateTime date;
-
-  Task({required this.text, required this.date});
-}
 
 class ChatController extends GetxController {
   TextEditingController promptController = TextEditingController();
   final ItemScrollController scrollController = ItemScrollController();
+  final ItemPositionsListener itemPositionsListener =
+      ItemPositionsListener.create();
   RxBool inputEnabled = false.obs;
   RxBool isLoading = false.obs;
-  RxList<dynamic> tasks = RxList<dynamic>();
   RxString prompt = ''.obs;
   String userId = '';
   RxList messageHistory = [].obs;
   RxBool isEdit = false.obs;
   Rxn<DateTime> selectedDate = Rxn<DateTime>();
 
+  // Function to scroll to the top of the screen
   void _scrollLastToTop() {
     scrollController.scrollTo(
       index: messageHistory.length - 1,
@@ -44,27 +39,83 @@ class ChatController extends GetxController {
     );
   }
 
+  // This logic retrieves task list from the LLM response
   dynamic getTasks(String rawText) {
     dynamic result;
+    // Get current date
+    final String today = DateTime.now().toIso8601String();
     try {
       if (rawText.contains('1.')) {
-        if (rawText.contains('**1. ')) {
+        if (rawText.contains('#### **1. ')) {
+          // Extract matches using the RegExp
+          final pattern = RegExp(
+            r'#### \*\*(\d+)\. (.+?)\:\*\*\n((?:.|\n)*?)(?=#### \*\*|\z)',
+            multiLine: true,
+          );
+
+          // Map matches to a list of tasks with title, body, and date
+          final List<Task> tasks =
+              pattern.allMatches(rawText).map((match) {
+                final String? title = match.group(2)?.trim();
+                final String? body = match
+                    .group(3)
+                    ?.trim()
+                    .replaceAll(RegExp(r'\s+'), ' ');
+                return Task(title: title!, body: body!, date: today);
+              }).toList();
+          result = tasks;
+        } else if (rawText.contains('### **1. ')) {
+          // Extract matches using the RegExp
+          final pattern = RegExp(
+            r'### \*\*(\d+)\. (.+?)\:\*\*\n((?:.|\n)*?)(?=### \*\*|\z)',
+            multiLine: true,
+          );
+
+          // Map matches to a list of tasks with title, body, and date
+          final List<Task> tasks =
+              pattern.allMatches(rawText).map((match) {
+                final String? title = match.group(2)?.trim();
+                final String? body = match
+                    .group(3)
+                    ?.trim()
+                    .replaceAll(RegExp(r'\s+'), ' ');
+                return Task(title: title!, body: body!, date: today);
+              }).toList();
+          result = tasks;
+        } else if (rawText.contains('## **1. ')) {
+          // Extract matches using the RegExp
+          final pattern = RegExp(
+            r'## \*\*(\d+)\. (.+?)\:\*\*\n((?:.|\n)*?)(?=## \*\*|\z)',
+            multiLine: true,
+          );
+
+          // Map matches to a list of tasks with title, body, and date
+          final List<Task> tasks =
+              pattern.allMatches(rawText).map((match) {
+                final String? title = match.group(2)?.trim();
+                final String? body = match
+                    .group(3)
+                    ?.trim()
+                    .replaceAll(RegExp(r'\s+'), ' ');
+                return Task(title: title!, body: body!, date: today);
+              }).toList();
+          result = tasks;
+        } else if (rawText.contains('**1. ')) {
+          // Extract matches using the RegExp
           final RegExp pattern = RegExp(
             r'\*\*(\d+\.\s*[^:]+):\*\*\s*(.*?)(?=(\*\*\d+\.|\Z))',
             dotAll: true,
           );
-          final String today = DateTime.now().toIso8601String();
 
-          final List<Map<String, String>> tasks =
+          // Map matches to a list of tasks with title, body, and date
+          final List<Task> tasks =
               pattern.allMatches(rawText).map((match) {
                 final title = match.group(1)?.trim() ?? '';
                 final body =
                     match.group(2)?.trim().replaceAll(RegExp(r'\s+'), ' ') ??
                     '';
-                return {'title': title, 'body': body, 'date': today};
+                return Task(title: title, body: body, date: today);
               }).toList();
-          print(tasks[0]);
-          inspect(tasks);
           result = tasks;
         } else if (rawText.contains('1. **')) {
           final RegExp pattern = RegExp(
@@ -75,22 +126,18 @@ class ChatController extends GetxController {
           // Extract matches using the RegExp
           final matches = pattern.allMatches(rawText);
 
-          // Get today's date in 'yyyy-MM-dd' format
-          final today = DateTime.now().toIso8601String();
-
           // Map matches to a list of tasks with title, body, and date
-          final tasks =
+          final List<Task> tasks =
               matches.map((match) {
                 final title = match.group(2)?.trim() ?? '';
                 final body =
                     match.group(3)?.replaceAll(RegExp(r'\s+'), ' ').trim() ??
                     '';
-                return {'title': title, 'body': body, 'date': today};
+                return Task(title: title, body: body, date: today);
               }).toList();
-          print(tasks[0]);
-          inspect(tasks);
           result = tasks;
         } else {
+          // Extract matches using the RegExp
           final RegExp sectionRegex =
               rawText.contains('**1.')
                   ? RegExp(
@@ -101,19 +148,16 @@ class ChatController extends GetxController {
                     r'###\s*(\d+\.\s*[^\n]*)\n((?:(?!###\s*\d+\.).|\n)+)',
                     multiLine: true,
                   );
-          final String today = DateTime.now().toIso8601String();
-          // final String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-          final List<Map<String, String>> tasks =
+          // Map matches to a list of tasks with title, body, and date
+          final List<Task> tasks =
               sectionRegex.allMatches(rawText).map((match) {
                 final title = match.group(1)?.trim() ?? '';
                 final body =
                     match.group(2)?.trim().replaceAll(RegExp(r'\n'), ' ') ?? '';
 
-                return {'title': title, 'body': body, 'date': today};
+                return Task(title: title, body: body, date: today);
               }).toList();
-          print(tasks[0]);
-          inspect(tasks);
           result = tasks;
         }
       } else {
@@ -130,10 +174,14 @@ class ChatController extends GetxController {
     inputEnabled.value = promptController.text.trim().isNotEmpty;
   }
 
+  // Api request to send prompt to receive LLM response
   Future<void> sendPrompt() async {
     prompt.value = promptController.text.trim();
     messageHistory.add(prompt.value);
     promptController.clear();
+
+    // To close the keyboard
+    FocusScope.of(Get.context!).unfocus();
     if (messageHistory.length > 1) {
       _scrollLastToTop();
     }
@@ -171,20 +219,18 @@ class ChatController extends GetxController {
     }
   }
 
+  // This sets the date for particular task in the task list and update UI
   setDate(DateTime? date, int historyIndex, int index) {
     selectedDate.value = date;
-    messageHistory[historyIndex][index]['date'] =
+    (messageHistory[historyIndex][index] as Task).date =
         date == null ? '' : date.toIso8601String();
     Get.forceAppUpdate();
   }
 
-  editTask(List items, dynamic task, int index, int historyIndex) {
-    selectedDate.value =
-        task['date'] == '' ? DateTime.now() : DateTime.parse(task['date']);
+  // Opens the bottom sheet to edit task date and delete task
+  editTask(List items, Task task, int index, int historyIndex) {
+    selectedDate.value = task.date == '' ? null : DateTime.parse(task.date);
     showAppBottomSheet(
-      willPop: false,
-      isDismissible: false,
-      height: queryHeight(null),
       child: Obx(
         () => Column(
           children: [
@@ -290,7 +336,7 @@ class ChatController extends GetxController {
                                 ),
                                 Expanded(
                                   child: Text(
-                                    task['title'],
+                                    task.title,
                                     style: AppTextStyles.regularTextStyle(
                                       size: 16,
                                       color: AppColors.deepText,
@@ -314,7 +360,7 @@ class ChatController extends GetxController {
                                   ),
                                   SizedBox(width: 10),
                                   Text(
-                                    formatDate(task['date'], isSheet: true),
+                                    formatDate(task.date, isSheet: true),
                                     style: AppTextStyles.mediumTextStyle(
                                       color: AppColors.green,
                                       size: 12,
@@ -419,6 +465,18 @@ class ChatController extends GetxController {
   @override
   void onInit() {
     promptController.addListener(updateInputEnabled);
+    itemPositionsListener.itemPositions.addListener(() {
+      final visibleItems = itemPositionsListener.itemPositions.value;
+      visibleItems
+          .where((item) => item.itemLeadingEdge >= 0)
+          .reduce((min, item) => item.index < min.index ? item : min);
+    });
     super.onInit();
+  }
+
+  @override
+  void dispose() {
+    promptController.dispose();
+    super.dispose();
   }
 }

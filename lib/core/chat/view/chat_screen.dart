@@ -9,6 +9,7 @@ import 'package:worklyn_task/constants/app_icons.dart';
 import 'package:worklyn_task/constants/app_text_styles.dart';
 import 'package:worklyn_task/core/chat/controller/chat_controller.dart';
 import 'package:worklyn_task/core/chat/widget/task_dot.dart';
+import 'package:worklyn_task/core/model/task_model.dart';
 import 'package:worklyn_task/internalization/app_strings.dart';
 import 'package:worklyn_task/shared/custom_input/custom_input.dart';
 import 'package:worklyn_task/utils/view_utils.dart';
@@ -27,7 +28,7 @@ class ChatScreen extends StatelessWidget {
           width: queryWidth(context),
           padding: EdgeInsets.symmetric(
             horizontal: queryWidth(context) * 0.03,
-            vertical: 20,
+            vertical: 15,
           ),
           color: AppColors.white,
           child: Column(
@@ -38,24 +39,41 @@ class ChatScreen extends StatelessWidget {
                 AppStrings.chat.tr,
                 style: AppTextStyles.boldTextStyle(size: 34),
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Obx(
-                    () => Container(
-                      margin: EdgeInsets.only(top: 20),
-                      height: queryHeight(context) * 0.75,
-                      child: ScrollablePositionedList.builder(
-                        itemScrollController: controller.scrollController,
-                        itemCount: controller.messageHistory.length,
-                        padding: EdgeInsets.only(bottom: 100),
-                        itemBuilder: (context, historyIndex) {
-                          final message =
-                              controller.messageHistory[historyIndex];
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              message is List
-                                  ? Column(
+              SizedBox(height: 10),
+              Obx(
+                () => Expanded(
+                  child: ScrollablePositionedList.builder(
+                    itemScrollController: controller.scrollController,
+                    itemCount: controller.messageHistory.length,
+                    padding: EdgeInsets.only(
+                      bottom: queryHeight(context) * 0.6,
+                    ),
+                    itemBuilder: (context, historyIndex) {
+                      final message = controller.messageHistory[historyIndex];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          message is List
+                              ? message.isEmpty
+                                  ? Row(
+                                    children: [
+                                      Text(
+                                        AppStrings.error.tr,
+                                        style: AppTextStyles.regularTextStyle(
+                                          size: 16,
+                                          color: AppColors.red,
+                                        ),
+                                      ),
+                                      SizedBox(width: 5),
+                                      Icon(
+                                        Icons.error,
+                                        color: AppColors.red.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                  : Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
@@ -72,7 +90,8 @@ class ChatScreen extends StatelessWidget {
                                             message.indexed.map((
                                               (int, dynamic) item,
                                             ) {
-                                              final (index, value) = item;
+                                              final (index, value as Task) =
+                                                  item;
                                               return GestureDetector(
                                                 onTap:
                                                     () => controller.editTask(
@@ -96,7 +115,7 @@ class ChatScreen extends StatelessWidget {
                                                                   .start,
                                                           children: [
                                                             Text(
-                                                              value['title'],
+                                                              value.title,
                                                               style:
                                                                   AppTextStyles.regularTextStyle(
                                                                     size: 16,
@@ -119,7 +138,7 @@ class ChatScreen extends StatelessWidget {
                                                                 ),
                                                                 Text(
                                                                   formatDate(
-                                                                    value['date'],
+                                                                    value.date,
                                                                   ),
                                                                   style: AppTextStyles.regularTextStyle(
                                                                     color:
@@ -140,48 +159,46 @@ class ChatScreen extends StatelessWidget {
                                       ),
                                     ],
                                   )
-                                  : Align(
-                                    alignment:
+                              : Align(
+                                alignment:
+                                    historyIndex.isEven
+                                        ? Alignment.centerRight
+                                        : Alignment.centerLeft,
+                                child: Container(
+                                  padding: EdgeInsets.all(12),
+                                  margin: EdgeInsets.only(
+                                    left: historyIndex.isEven ? 20 : 0,
+                                    right: historyIndex.isOdd ? 20 : 0,
+                                    bottom: 20,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
                                         historyIndex.isEven
-                                            ? Alignment.centerRight
-                                            : Alignment.centerLeft,
-                                    child: Container(
-                                      padding: EdgeInsets.all(12),
-                                      margin: EdgeInsets.only(
-                                        left: historyIndex.isEven ? 20 : 0,
-                                        right: historyIndex.isOdd ? 20 : 0,
-                                        bottom: 20,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            historyIndex.isEven
-                                                ? AppColors.secondaryColor
-                                                : AppColors.inputColor,
-                                        borderRadius: BorderRadius.circular(
-                                          AppConstants.inputRadius,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        message,
-                                        style: AppTextStyles.regularTextStyle(
-                                          color: AppColors.inputTextColor,
-                                        ),
-                                      ),
+                                            ? AppColors.secondaryColor
+                                            : AppColors.inputColor,
+                                    borderRadius: BorderRadius.circular(
+                                      AppConstants.inputRadius,
                                     ),
                                   ),
-                              if (controller.isLoading.value &&
-                                  (controller.messageHistory.length == 1 ||
-                                      controller.messageHistory.length - 1 ==
-                                          historyIndex))
-                                LoadingAnimationWidget.waveDots(
-                                  color: Color(0xFF141414),
-                                  size: 20,
+                                  child: Text(
+                                    message,
+                                    style: AppTextStyles.regularTextStyle(
+                                      color: AppColors.inputTextColor,
+                                    ),
+                                  ),
                                 ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
+                              ),
+                          if (controller.isLoading.value &&
+                              (controller.messageHistory.length == 1 ||
+                                  controller.messageHistory.length - 1 ==
+                                      historyIndex))
+                            LoadingAnimationWidget.waveDots(
+                              color: AppColors.hintColor,
+                              size: 30,
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),

@@ -33,13 +33,7 @@ void showSnackbarMessage({required String message, bool isSuccess = false}) {
   Get.showSnackbar(snackbar);
 }
 
-void showAppBottomSheet({
-  required Widget child,
-  double height = 460,
-  bool isDismissible = true,
-  bool enableDrag = true,
-  bool willPop = true,
-}) {
+void showAppBottomSheet({required Widget child}) {
   Get.bottomSheet(
     DraggableScrollableSheet(
       expand: false,

@@ -40,7 +40,7 @@ class _CustomInputState extends State<CustomInput> {
         counterText: '',
         filled: true,
         fillColor: AppColors.inputColor,
-        focusedBorder: AppInputBorders.focusedBorder,
+        focusedBorder: AppInputBorders.border,
         border: AppInputBorders.border,
         enabledBorder: AppInputBorders.border,
       ),
